@@ -62,6 +62,18 @@ class AlertingConfig:
     sink: str
     file_path: str | None = None
 
+@dataclass(slots=True)
+class DataQualityRuleConfig:
+    type: str
+    column: str | None = None
+    min: float | None = None
+    max: float | None = None
+    columns:list[str] | None = None
+
+
+@dataclass(slots=True)
+class DataQualityConfig:
+    events: list[DataQualityRuleConfig]
 
 @dataclass(slots=True)
 class PipelineConfig:
@@ -69,11 +81,27 @@ class PipelineConfig:
     dataset: SyntheticDatasetConfig
     anomaly_detection: AnomalyDetectionConfig
     alerting: AlertingConfig
+    data_quality: DataQualityConfig
 
     @classmethod
     def load(cls, path: Path) -> "PipelineConfig":
         with path.open("r", encoding="utf-8") as file:
             raw = yaml.safe_load(file)
+        
+        dq_raw = raw.get("data_quality", {})
+        dq_events_raw = dq_raw.get("events", [])
+        dq_events = [
+            DataQualityRuleConfig(
+                type=rule["type"],
+                column=rule.get("column"),
+                min=rule.get("min"),
+                max=rule.get("max"),
+                columns=rule.get("columns"),
+            )
+            for rule in dq_events_raw
+        ]
+        dq_config = DataQualityConfig(events=dq_events)
+
         return cls(
             clickhouse=ClickHouseConfig(**raw["clickhouse"]),
             dataset=SyntheticDatasetConfig(**raw["dataset"]),
@@ -86,4 +114,5 @@ class PipelineConfig:
                 ensemble=EnsembleConfig(**raw["anomaly_detection"]["ensemble"]),
             ),
             alerting=AlertingConfig(**raw["alerting"]),
+            data_quality=dq_config,
         )

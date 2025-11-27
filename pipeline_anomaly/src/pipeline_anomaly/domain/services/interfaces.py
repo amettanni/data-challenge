@@ -47,3 +47,12 @@ class AnomalyDetector(Protocol):
 class AlertSink(Protocol):
     def send(self, report: AnomalyReport) -> None:
         ...
+
+
+
+from pipeline_anomaly.domain.models.rule import TableRule, Expectation
+
+
+class DataQualityEngine(Protocol):
+    def validate_rule(self, df: pd.DataFrame, rule: Expectation) -> tuple[bool, str]:
+        ...

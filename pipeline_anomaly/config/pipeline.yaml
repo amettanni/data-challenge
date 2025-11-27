@@ -32,3 +32,20 @@ alerting:
   threshold_score: 0.8
   sink: stdout
   file_path: logs/anomalies.jsonl
+
+
+data_quality:
+  events:
+    - type: not_null
+      column: value
+
+    - type: not_null
+      column: attribute
+
+    - type: between
+      column: value
+      min: 0
+      max: 200
+  
+    - type: unique
+      columns: ["entity_id"]

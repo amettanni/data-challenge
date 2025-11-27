@@ -38,7 +38,11 @@ def run(config: Path = typer.Option(..., exists=True, readable=True)) -> None:
     repository = ClickHouseRepository(factory=factory)
 
     generator = SyntheticDatasetGenerator(config=cfg.dataset)
-    loader = LoadSyntheticDataset(generator=generator, writer=repository)
+    loader = LoadSyntheticDataset(
+        generator=generator,
+        writer=repository,
+        dq_config=cfg.data_quality,
+    )
     aggregator = ComputeAggregates(writer=repository)
 
     base_detectors = [
