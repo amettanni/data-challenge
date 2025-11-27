@@ -5,7 +5,7 @@ import pandas as pd
 from pipeline_anomaly.domain.services.interfaces import AnomalyDetector
 
 
-class PandasDetector:
+class PandasDetector(AnomalyDetector):
     def __init__(self, name: str) -> None:
         self.name = name
 
