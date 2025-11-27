@@ -30,10 +30,29 @@ class DBSCANConfig:
 
 
 @dataclass(slots=True)
+class IQRConfig:
+    multiplier: float
+
+
+@dataclass(slots=True)
+class EWMAConfig:
+    threshold: float
+    alpha: int
+
+
+@dataclass(slots=True)
+class EnsembleConfig:
+    min_votes: int
+
+
+@dataclass(slots=True)
 class AnomalyDetectionConfig:
     zscore_threshold: float
     isolation_forest: IsolationForestConfig
     dbscan: DBSCANConfig
+    iqr: IQRConfig
+    ewma: EWMAConfig
+    ensemble: EnsembleConfig
 
 
 @dataclass(slots=True)
@@ -41,6 +60,7 @@ class AlertingConfig:
     enabled: bool
     threshold_score: float
     sink: str
+    file_path: str | None = None
 
 
 @dataclass(slots=True)
@@ -61,6 +81,9 @@ class PipelineConfig:
                 zscore_threshold=float(raw["anomaly_detection"]["zscore_threshold"]),
                 isolation_forest=IsolationForestConfig(**raw["anomaly_detection"]["isolation_forest"]),
                 dbscan=DBSCANConfig(**raw["anomaly_detection"]["dbscan"]),
+                iqr=IQRConfig(**raw["anomaly_detection"]["iqr"]),
+                ewma=EWMAConfig(**raw["anomaly_detection"]["ewma"]),
+                ensemble=EnsembleConfig(**raw["anomaly_detection"]["ensemble"]),
             ),
             alerting=AlertingConfig(**raw["alerting"]),
         )
