@@ -9,11 +9,15 @@ from pipeline_anomaly.application.use_cases.detect_anomalies import DetectAnomal
 from pipeline_anomaly.application.use_cases.load_dataset import LoadSyntheticDataset
 from pipeline_anomaly.application.use_cases.run_pipeline import RunPipeline
 from pipeline_anomaly.infrastructure.alerting.stdout_sink import StdOutAlertSink
+from pipeline_anomaly.infrastructure.alerting.file_sink import FileAlertSink
 from pipeline_anomaly.infrastructure.clients.clickhouse import ClickHouseFactory
 from pipeline_anomaly.infrastructure.config import PipelineConfig
 from pipeline_anomaly.infrastructure.detectors.dbscan import DBSCANDetector
 from pipeline_anomaly.infrastructure.detectors.isolation_forest import IsolationForestDetector
 from pipeline_anomaly.infrastructure.detectors.zscore import ZScoreDetector
+from pipeline_anomaly.infrastructure.detectors.iqr import IQRDetector
+from pipeline_anomaly.infrastructure.detectors.ewma import EWMADetector
+from pipeline_anomaly.infrastructure.detectors.ensemble import EnsembleDetector
 from pipeline_anomaly.infrastructure.generators.synthetic_generator import SyntheticDatasetGenerator
 from pipeline_anomaly.infrastructure.repositories.clickhouse_repository import ClickHouseRepository
 
@@ -37,7 +41,7 @@ def run(config: Path = typer.Option(..., exists=True, readable=True)) -> None:
     loader = LoadSyntheticDataset(generator=generator, writer=repository)
     aggregator = ComputeAggregates(writer=repository)
 
-    detectors = [
+    base_detectors = [
         ZScoreDetector(threshold=cfg.anomaly_detection.zscore_threshold),
         IsolationForestDetector(
             contamination=cfg.anomaly_detection.isolation_forest.contamination,
@@ -47,14 +51,24 @@ def run(config: Path = typer.Option(..., exists=True, readable=True)) -> None:
             eps=cfg.anomaly_detection.dbscan.eps,
             min_samples=cfg.anomaly_detection.dbscan.min_samples,
         ),
+        IQRDetector(multiplier=cfg.anomaly_detection.iqr.multiplier),
+        EWMADetector(
+            threshold=cfg.anomaly_detection.ewma.threshold, 
+            alpha=cfg.anomaly_detection.ewma.alpha
+        ),
     ]
+    ensemble = EnsembleDetector(detectors=base_detectors, min_votes=cfg.anomaly_detection.ensemble.min_votes)
+    detectors = base_detectors + [ensemble]
     detector = DetectAnomalies(
         writer=repository,
         detectors=detectors,
         threshold=cfg.alerting.threshold_score,
     )
 
-    sink = StdOutAlertSink()
+    if cfg.alerting.sink == "stdout":
+        sink = StdOutAlertSink()
+    elif cfg.alerting.sink == "file":
+        sink = FileAlertSink(cfg.alerting.file_path)
     pipeline = RunPipeline(
         loader=loader,
         aggregator=aggregator,

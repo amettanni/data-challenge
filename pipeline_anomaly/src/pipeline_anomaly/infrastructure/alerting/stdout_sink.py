@@ -5,9 +5,10 @@ import json
 from loguru import logger
 
 from pipeline_anomaly.domain.models.anomaly import AnomalyReport
+from pipeline_anomaly.domain.services.interfaces import AlertSink
 
 
-class StdOutAlertSink:
+class StdOutAlertSink(AlertSink):
     def send(self, report: AnomalyReport) -> None:
         payload = {
             "generated_at": report.generated_at.isoformat(),
