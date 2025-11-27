@@ -20,6 +20,9 @@ class ClickHouseWriter(Protocol):
 
     def ingest_batch(self, batch: RecordBatch) -> None:
         ...
+    
+    def insert_dicts(self, table: str, rows: list[dict]) -> None:
+        ...
 
     def persist_aggregates(self, aggregates: AggregateCollection) -> None:
         ...

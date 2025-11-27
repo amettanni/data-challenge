@@ -22,7 +22,10 @@ class ClickHouseRepository:
                 entity_id UInt64,
                 value Float64,
                 attribute Float64
-            ) ENGINE = MergeTree ORDER BY (event_time, entity_id)
+            ) 
+            ENGINE = MergeTree
+            PARTITION BY toYYYYMM(event_time)
+            ORDER BY (event_time, entity_id)
             """,
             """
             CREATE TABLE IF NOT EXISTS aggregates (
@@ -30,8 +33,10 @@ class ClickHouseRepository:
                 value Float64,
                 window_start DateTime,
                 window_end DateTime,
-                extra Map(String, Float64)
-            ) ENGINE = MergeTree ORDER BY (window_start, metric)
+                extra Map(String, Float64) CODEC(ZSTD(3))
+            ) 
+            ENGINE = MergeTree(version)
+            ORDER BY (metric, window_start)
             """,
             """
             CREATE TABLE IF NOT EXISTS anomaly_reports (
@@ -51,12 +56,26 @@ class ClickHouseRepository:
 
     def ingest_batch(self, batch: RecordBatch) -> None:
         with self._factory.connect() as client:
-            client.insert_dataframe("events", batch.dataframe)
+            client.insert_df("events", batch.dataframe)
+            
+    def insert_dicts(self, table: str, rows: list[dict]) -> None:
+        if not rows:
+            return
+        
+        first_keys = set(rows[0].keys())
+        for r in rows:
+            if set(r.keys()) != first_keys:
+                raise ValueError("All dicts must have the same keys")
+
+        column_names = list(first_keys)
+        data = [[row[col] for col in column_names] for row in rows]
+
+        with self._factory.connect() as client:
+            client.insert(table, data, column_names=column_names)
 
     def persist_aggregates(self, aggregates: AggregateCollection) -> None:
         payload = aggregates.as_dict()
-        with self._factory.connect() as client:
-            client.insert_dicts("aggregates", payload)
+        self.insert_dicts("aggregates", payload)
 
     def persist_report(self, report: AnomalyReport) -> None:
         rows = [
@@ -71,14 +90,13 @@ class ClickHouseRepository:
             }
             for anomaly in report.anomalies
         ]
-        with self._factory.connect() as client:
-            client.insert_dicts("anomaly_reports", rows)
+        self.insert_dicts("anomaly_reports", rows)
 
     def read_latest_window(self) -> pd.DataFrame:
         with self._factory.connect() as client:
             query = """
             SELECT * FROM events
-            WHERE event_time >= now() - INTERVAL 1 DAY
+            WHERE event_time >= now() - INTERVAL 2 DAY
             ORDER BY event_time
             """
             result = client.query_df(query)

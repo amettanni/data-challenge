@@ -21,13 +21,14 @@ class AggregateCollection:
     aggregates: tuple[Aggregate, ...]
 
     def as_dict(self) -> list[dict[str, float | str]]:
+        """fix: isoformat был удален"""
         payload: list[dict[str, float | str]] = []
         for aggregate in self.aggregates:
             row: dict[str, float | str] = {
                 "metric": aggregate.metric,
                 "value": aggregate.value,
-                "window_start": aggregate.window_start.isoformat(),
-                "window_end": aggregate.window_end.isoformat(),
+                "window_start": aggregate.window_start,
+                "window_end": aggregate.window_end,
             }
             if aggregate.extra:
                 row.update({f"extra_{key}": val for key, val in aggregate.extra.items()})
